@@ -80,7 +80,7 @@ values. The app recalculates the FIT checksums and verifies the result before sa
 
 ## Build and contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for Windows and macOS build instructions, tests, the macOS
+See [CONTRIBUTING.md](CONTRIBUTING.md) for Windows and macOS build instructions, the macOS
 command-line tool, and bug reporting. See [CHANGELOG.md](CHANGELOG.md) for release changes.
 
 Whoosh2Garmin is an independent project. Garmin and MyWhoosh do not endorse it. The source is

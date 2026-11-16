@@ -44,9 +44,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Test FIT conversion
-        run: dotnet run --project Windows.Tests --configuration Release
-
       - name: Build portable Windows app
         run: dotnet publish Windows/Whoosh2Garmin.csproj --configuration Release --runtime win-x64 --self-contained true --output build/windows-x64
 

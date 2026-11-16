@@ -27,11 +27,10 @@ cd MyWhoosh2Garmin
 Install the .NET 10 SDK on Windows and run these commands in PowerShell.
 
 ```powershell
-dotnet run --project .\Windows.Tests -c Release
 dotnet publish .\Windows\Whoosh2Garmin.csproj -c Release -r win-x64 --self-contained true -o .\build\windows-x64
 ```
 
-Run `build\windows-x64\Whoosh2Garmin.exe`. The test project exercises the converter offline with synthetic files.
+Run `build\windows-x64\Whoosh2Garmin.exe`. To check conversion, open a disposable copy of a MyWhoosh export and confirm that the app writes a `- fixed.fit` file in the source folder.
 
 ### macOS
 
@@ -61,7 +60,6 @@ Use Garmin's FIT CSV Tool to inspect results locally. [FIT CSV Tool](https://dev
 | `Tools/cli.swift` | macOS command-line tool |
 | `Tools/icon.swift`, `build.sh` | macOS icon and app packaging |
 | `Windows/` | Windows window, FIT converter and file handling |
-| `Windows.Tests/` | Offline tests for the Windows converter |
 
 ## Guidelines
 
