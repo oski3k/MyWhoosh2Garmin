@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-16
+
+### Added
+- Portable Windows x64 app with batch FIT conversion, drag and drop, and a dark interface.
+- Windows and macOS downloads packaged together in GitHub Releases by the tagged build workflow.
+
+### Changed
+- The README now walks through downloading, running, and importing converted rides on both platforms.
+- Bug reports and pull requests now ask which platform was affected or tested.
+
 ## [1.0.0] - 2026-11-16
 
 ### Added

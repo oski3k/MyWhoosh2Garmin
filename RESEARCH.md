@@ -1,7 +1,8 @@
 # MyWhoosh → Garmin Connect: training load from FIT files
 
-Background research as of November 16, 2026. It describes the reasoning that led to this app; the
-app itself now uses the Forerunner 965 ID (see [README](README.md#what-exactly-is-changed)).
+Background research as of November 16, 2026. The first experiments below used the Edge 1030 Plus
+ID. The current Windows and macOS apps use the [Forerunner 965 ID](README.md#what-the-app-changes).
+See the [README](README.md) for download and import instructions.
 
 **The first change worth testing was setting the Garmin Edge 1030 Plus ID in a copy of the FIT file**
 (`manufacturer = 1`, `product = 3570`). Users report that after this change and a manual import,

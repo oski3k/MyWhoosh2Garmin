@@ -12,3 +12,11 @@ body:
     id: idea
     attributes:
       label: Your idea
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Which platforms would benefit?
+      options:
+        - Both platforms
+        - Windows
+        - macOS

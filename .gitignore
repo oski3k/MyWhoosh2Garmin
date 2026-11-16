@@ -2,6 +2,11 @@
 build/
 fitfix
 *.zip
+**/bin/
+**/obj/
+
+# Local knowledge graph
+graphify-out/
 
 # Activity files (may contain personal data)
 *.fit

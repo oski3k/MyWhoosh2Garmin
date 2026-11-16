@@ -16,6 +16,7 @@ body:
       options:
         - The app wouldn't open
         - The app beeped / didn't create a fixed file
+        - The fixed file was saved, but the original was still present
         - Garmin Connect rejected the import
         - Imported, but no training load / Exercise Load
         - Other
@@ -27,21 +28,22 @@ body:
       label: Garmin device model
       placeholder: e.g. Forerunner 965, Edge 840
   - type: input
-    id: macos
+    id: platform
     attributes:
-      label: macOS version and Mac type
-      placeholder: e.g. macOS 15.2, Apple Silicon
+      label: Operating system and device type
+      description: Include the Windows version and system type, or the macOS version and Mac chip.
+      placeholder: e.g. Windows 11 x64 or macOS 15.2 on Apple Silicon
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Whoosh2Garmin version
-      placeholder: e.g. 1.0.0
+      label: Whoosh2Garmin release or commit
+      placeholder: e.g. v1.1.0 or the commit you built from
   - type: textarea
     id: file
     attributes:
       label: FIT file (optional)
       description: >
-        Attaching the original MyWhoosh .fit file helps a lot. It contains your ride data,
-        so only attach it if you're comfortable sharing it publicly.
+        A synthetic sample is welcome. FIT files may contain timestamps, location, heart
+        rate and power. GitHub attachments are public, so only share files you want to make public.

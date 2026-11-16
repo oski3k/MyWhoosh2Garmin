@@ -1,48 +1,78 @@
 # Contributing
 
-Thanks for your interest in Whoosh2Garmin! Bug reports, ideas and pull requests are all welcome.
+Bug reports, feature requests and pull requests are welcome.
 
 ## Reporting a problem
 
-Please [open an issue](https://github.com/oski3k/MyWhoosh2Garmin/issues/new/choose) and include:
+Use the bug report form and include the steps you took, what you expected and what happened. [Open an issue](https://github.com/oski3k/MyWhoosh2Garmin/issues/new/choose)
 
-- your macOS version and Mac type (Apple Silicon / Intel),
-- your Garmin device model,
-- what happened vs. what you expected (e.g. "imported, but no Exercise Load"),
-- if you can, the original MyWhoosh `.fit` file.
+- **Windows** — include the Windows version and system type, for example Windows 11 x64.
+- **macOS** — include the macOS version and chip type, for example macOS 15 on Apple Silicon.
+- **Whoosh2Garmin** — include the release tag or commit you built from.
+- **Garmin Connect** — for import or training metrics issues, include the Garmin device model and any error shown.
 
-> FIT files contain your ride data (timestamps, heart rate, power, sometimes location).
-> Only attach one if you're comfortable sharing it publicly.
+> GitHub issues and attachments are public. A FIT file can contain timestamps, heart rate, power and location. A description or a synthetic sample can help reproduce a problem without exposing your activity data.
 
 ## Development
 
-Requirements: macOS 14+, Xcode or the Xcode Command Line Tools.
+Clone the repository and run the commands from its root.
+
+```sh
+git clone https://github.com/oski3k/MyWhoosh2Garmin.git
+cd MyWhoosh2Garmin
+```
+
+### Windows
+
+Install the .NET 10 SDK on Windows and run these commands in PowerShell.
+
+```powershell
+dotnet run --project .\Windows.Tests -c Release
+dotnet publish .\Windows\Whoosh2Garmin.csproj -c Release -r win-x64 --self-contained true -o .\build\windows-x64
+```
+
+Run `build\windows-x64\Whoosh2Garmin.exe`. The test project exercises the converter offline with synthetic files.
+
+### macOS
+
+Use macOS 14 or later and Xcode or the Xcode Command Line Tools (`xcode-select --install`).
 
 ```bash
 ./build.sh            # builds build/Whoosh2Garmin.app
-./build.sh --install  # builds and installs to /Applications
+./build.sh --install  # replaces the installed app in /Applications
+./build.sh --zip      # also creates build/Whoosh2Garmin.zip
 ```
 
-The quickest way to test changes to the FIT logic is the command-line tool, which never deletes
-its input:
+The macOS command-line tool writes to a separate path and leaves the input file in place. The optional time zone defaults to the system time zone.
 
 ```bash
 swiftc -O -parse-as-library Tools/cli.swift Sources/FitPatcher.swift -o fitfix
-./fitfix ride.fit out.fit
+./fitfix ride.fit ride-garmin.fit Europe/Warsaw
 ```
 
-Useful for inspecting results: Garmin's [FitCSVTool](https://developer.garmin.com/fit/fitcsvtool/)
-or [fitfiletools.com](https://www.fitfiletools.com/).
+Use Garmin's FIT CSV Tool to inspect results locally. [FIT CSV Tool](https://developer.garmin.com/fit/fitcsvtool/)
+
+### Project layout
+
+| Path | Role |
+| --- | --- |
+| `Sources/App.swift` | macOS window, file selection and output naming |
+| `Sources/FitPatcher.swift` | macOS FIT converter |
+| `Tools/cli.swift` | macOS command-line tool |
+| `Tools/icon.swift`, `build.sh` | macOS icon and app packaging |
+| `Windows/` | Windows window, FIT converter and file handling |
+| `Windows.Tests/` | Offline tests for the Windows converter |
 
 ## Guidelines
 
-- Keep `Sources/FitPatcher.swift` free of UI/AppKit dependencies so it stays portable.
-- Never modify sample (`record`) data — the patcher must copy everything it doesn't need to change byte for byte.
-- Keep the post-write verification in place; if you change what's patched, extend `verify` accordingly.
-- Small, focused pull requests with a short description of *why* are easiest to review.
+- Keep FIT parsing and conversion independent of each platform's UI.
+- Preserve sample (`record`) data byte for byte and verify the patched FIT before writing it.
+- Check both converters when changing shared FIT behavior. Use a disposable copy for testing either desktop app because successful conversion deletes the input.
 - Add an entry to `CHANGELOG.md` under **Unreleased**.
 
 ## Releasing (maintainers)
 
-Push a tag like `v1.1.0`. The **Build** workflow builds a universal app, zips it and attaches
-`Whoosh2Garmin.zip` to a GitHub release for that tag.
+Push a version tag such as `v1.1.0`. The **Build** workflow publishes the release after both platform jobs pass.
+
+- macOS (Apple Silicon and Intel) uses `Whoosh2Garmin.zip`.
+- Windows x64 uses `Whoosh2Garmin-Windows-x64.zip`.
