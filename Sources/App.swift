@@ -14,7 +14,7 @@ struct WhooshToGarminApp: App {
     }
 }
 
-/// Obsługa plików upuszczonych na ikonę w Docku / „Otwórz za pomocą”.
+/// Handles files dropped on the Dock icon / "Open With".
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = Model()
@@ -33,11 +33,10 @@ final class Model: ObservableObject {
     static func fix(_ url: URL) -> Bool {
         do {
             let (data, report) = try patchFit(try Data(contentsOf: url))
-            let name = report.activityName ?? url.deletingPathExtension().lastPathComponent
-            let out = outputURL(in: url.deletingLastPathComponent(), name: name,
+            let out = outputURL(in: url.deletingLastPathComponent(), name: report.activityName,
                                 date: report.startDate ?? Date(), excluding: url)
             try data.write(to: out, options: .atomic)
-            // Nowy plik jest już bezpiecznie zapisany — usuń oryginał na stałe.
+            // The new file is safely written — permanently remove the original.
             if out.standardizedFileURL != url.standardizedFileURL {
                 try? FileManager.default.removeItem(at: url)
             }
@@ -47,13 +46,13 @@ final class Model: ObservableObject {
         }
     }
 
-    /// „<nazwa aktywności> - 2026-11-16 - fixed.fit”; przy kolizji dopisuje (2), (3)…
-    static func outputURL(in dir: URL, name: String, date: Date, excluding source: URL) -> URL {
+    /// "<activity name> - 2026-11-16 - fixed.fit"; appends (2), (3)… on collision
+    static func outputURL(in dir: URL, name: String?, date: Date, excluding source: URL) -> URL {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
-        let safe = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-        let base = "\(safe) - \(f.string(from: date)) - fixed"
+        let safe = name?.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let base = [safe, f.string(from: date), "fixed"].compactMap { $0 }.joined(separator: " - ")
         var candidate = dir.appendingPathComponent("\(base).fit")
         var n = 2
         while FileManager.default.fileExists(atPath: candidate.path),
@@ -72,8 +71,8 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: "arrow.down.doc").font(.system(size: 28, weight: .light))
-            Text("Upuść plik .fit z MyWhoosh").font(.headline)
-            Button("lub wybierz…", action: pick).buttonStyle(.link)
+            Text("Drop a MyWhoosh .fit file").font(.headline)
+            Button("or choose…", action: pick).buttonStyle(.link)
         }
         .foregroundStyle(hovering ? Color.accentColor : .secondary)
         .frame(maxWidth: .infinity, minHeight: 140)

@@ -1,3 +1,14 @@
+# Build output
 build/
-.DS_Store
+fitfix
+*.zip
+
+# Activity files (may contain personal data)
 *.fit
+*.FIT
+
+# macOS / Xcode
+.DS_Store
+.swiftpm/
+xcuserdata/
+DerivedData/

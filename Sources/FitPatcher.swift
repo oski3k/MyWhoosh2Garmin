@@ -1,18 +1,18 @@
-// FitPatcher — przygotowuje plik FIT z MyWhoosh tak, żeby Garmin Connect
-// potraktował go jak jazdę z Garmin Forerunner 965 i policzył obciążenie.
+// FitPatcher — prepares a MyWhoosh FIT file so that Garmin Connect treats it
+// as a ride recorded on a Garmin Forerunner 965 and computes training load.
 //
-// Zmiany:
+// Changes:
 //  1. file_id (0):       manufacturer = 1 (Garmin), product = 4315 (Forerunner 965)
-//  2. device_info (23):  to samo dla wpisu device_index = 0 („creator”);
-//                        jeśli takiego wpisu nie ma, jest dodawany zaraz po file_id
-//  3. activity (34):     local_timestamp = timestamp + przesunięcie strefy czasowej
-//                        (MyWhoosh zapisuje tam błędną wartość)
+//  2. device_info (23):  the same for the device_index = 0 ("creator") entry;
+//                        if there is no such entry, one is added right after file_id
+//  3. activity (34):     local_timestamp = timestamp + time zone offset
+//                        (MyWhoosh writes a wrong value there)
 //
-// Wszystko inne — próbki, okrążenia, sesja, pola deweloperskie — jest kopiowane
-// bajt w bajt. Na końcu przeliczany jest rozmiar danych, CRC nagłówka i CRC pliku,
-// a wynik jest ponownie wczytywany i porównywany z oryginałem.
+// Everything else — samples, laps, session, developer fields — is copied
+// byte for byte. Finally the data size, header CRC and file CRC are recalculated,
+// and the result is parsed again and compared with the original.
 //
-// Tylko Foundation, bez UI — ten plik można przenieść 1:1 na inną platformę.
+// Foundation only, no UI — this file can be ported 1:1 to another platform.
 
 import Foundation
 
@@ -24,18 +24,18 @@ struct FitReport {
     var powerSamples = 0
     var addedCreatorDevice = false
     var fixedLocalTimestamp = false
-    var startDate: Date?                         // time_created z file_id
+    var startDate: Date?                         // time_created from file_id
     var activityName: String?                    // workout.wkt_name / sport.name / session.sport_profile_name
 
     var sourceName: String {
         switch sourceManufacturer {
-        case nil: return "Nieznane źródło"
+        case nil: return "Unknown source"
         case 331: return "MyWhoosh"
         case 1: return sourceProduct == Int(Target.product) ? "Garmin Forerunner 965" : "Garmin"
         case 32: return "Wahoo"
         case 89: return "Tacx"
         case 260: return "Zwift"
-        case let m?: return "Producent \(m)"
+        case let m?: return "Manufacturer \(m)"
         }
     }
 }
@@ -45,10 +45,10 @@ enum FitError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notFit: return "To nie jest plik FIT."
-        case .damaged: return "Plik FIT jest ucięty lub uszkodzony."
-        case .notActivity: return "To nie jest plik z treningiem."
-        case .verificationFailed: return "Poprawiony plik nie przeszedł weryfikacji — nic nie zapisano."
+        case .notFit: return "This is not a FIT file."
+        case .damaged: return "The FIT file is truncated or damaged."
+        case .notActivity: return "This is not an activity file."
+        case .verificationFailed: return "The fixed file failed verification — nothing was saved."
         }
     }
 }
@@ -58,12 +58,12 @@ private enum Target {
     static let product: UInt64 = 4315       // Forerunner 965
 }
 
-/// Numery komunikatów i pól z profilu FIT.
+/// Message and field numbers from the FIT profile.
 private enum Msg {
     static let fileId: UInt16 = 0, record: UInt16 = 20, deviceInfo: UInt16 = 23, activity: UInt16 = 34
 }
 
-// MARK: - Model strumienia FIT
+// MARK: - FIT stream model
 
 private struct Field { var num: UInt8, size: UInt8, baseType: UInt8 }
 
@@ -71,7 +71,7 @@ private struct Definition {
     var bigEndian: Bool
     var global: UInt16
     var fields: [Field]
-    var devFields: [Field]          // (numer, rozmiar, indeks danych deweloperskich)
+    var devFields: [Field]          // (number, size, developer data index)
 
     var fieldsSize: Int { fields.reduce(0) { $0 + Int($1.size) } }
     var dataSize: Int { fieldsSize + devFields.reduce(0) { $0 + Int($1.size) } }
@@ -98,7 +98,7 @@ private struct Definition {
     }
 }
 
-/// Komunikat danych razem z definicją, która go opisuje.
+/// A data message together with the definition that describes it.
 private struct Message {
     var header: UInt8
     var def: Definition
@@ -128,7 +128,21 @@ private struct Message {
         return text.isEmpty ? nil : text
     }
 
-    mutating func clear(_ num: UInt8) {          // pusty napis
+    /// String from a developer field (field number + developer data index).
+    func devString(_ num: UInt8, index: UInt8) -> String? {
+        var offset = def.fieldsSize
+        for f in def.devFields {
+            if f.num == num && f.baseType == index {
+                let bytes = body[offset..<offset + Int(f.size)].prefix { $0 != 0 }
+                let text = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespaces)
+                return text.isEmpty ? nil : text
+            }
+            offset += Int(f.size)
+        }
+        return nil
+    }
+
+    mutating func clear(_ num: UInt8) {          // empty string
         if let r = def.range(of: num) { for i in r { body[i] = 0 } }
     }
 }
@@ -141,13 +155,13 @@ private enum Item {
 private struct FitFile {
     var header: [UInt8]
     var items: [Item]
-    var tail: [UInt8]               // dane za CRC (np. doklejony kolejny plik)
+    var tail: [UInt8]               // data after the CRC (e.g. another appended file)
     var crcValid: Bool
 
     var messages: [Message] { items.compactMap { if case .message(let m) = $0 { return m } else { return nil } } }
 }
 
-// MARK: - Odczyt
+// MARK: - Reading
 
 private func readFit(_ bytes: [UInt8]) throws -> FitFile {
     guard bytes.count >= 14, bytes[0] == 12 || bytes[0] == 14,
@@ -176,7 +190,7 @@ private func readFit(_ bytes: [UInt8]) throws -> FitFile {
         let h = try take(1).first!
         let isCompressedTimestamp = h & 0x80 != 0
         if !isCompressedTimestamp && h & 0x40 != 0 {
-            let fixed = Array(try take(4))           // reserved, architektura, numer globalny
+            let fixed = Array(try take(4))           // reserved, architecture, global number
             let big = fixed[1] == 1
             let global = big ? UInt16(fixed[2]) << 8 | UInt16(fixed[3]) : UInt16(fixed[3]) << 8 | UInt16(fixed[2])
             let fields = try takeFields()
@@ -209,9 +223,9 @@ func fitCRC<C: Collection>(_ bytes: C) -> UInt16 where C.Element == UInt8 {
     return crc
 }
 
-// MARK: - Poprawianie
+// MARK: - Patching
 
-/// Zwraca poprawioną kopię pliku i raport. `timeZone` służy do wyliczenia czasu lokalnego aktywności.
+/// Returns the fixed copy of the file and a report. `timeZone` is used to compute the activity's local time.
 func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, FitReport) {
     let fit = try readFit([UInt8](input))
     let original = fit.messages
@@ -222,16 +236,22 @@ func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, Fit
 
     let hasCreator = original.contains { $0.def.global == Msg.deviceInfo && $0.uint(0) == 0 }
     var report = FitReport()
-    // Nazwa aktywności: najpierw nazwa treningu, potem nazwa sportu, potem profil sesji.
+    // Activity name: MyWhoosh title (developer field "Title" in the session),
+    // then standard fields: workout name, sport name, session profile.
+    let titleFields = original.filter { $0.def.global == 206 && $0.string(3) == "Title" }
+        .compactMap { m in m.uint(0).flatMap { idx in m.uint(1).map { (UInt8(idx), UInt8($0)) } } }
+    let devTitle = titleFields.lazy.compactMap { idx, num in
+        original.lazy.filter { $0.def.global == 18 }.compactMap { $0.devString(num, index: idx) }.first
+    }.first
     let nameSources: [(UInt16, UInt8)] = [(26, 8), (12, 3), (18, 110)]
-    report.activityName = nameSources.lazy.compactMap { global, field in
+    report.activityName = devTitle ?? nameSources.lazy.compactMap { global, field in
         original.lazy.filter { $0.def.global == global }.compactMap { $0.string(field) }.first
     }.first
     var out = fit.header
     var usedLocalTypes = Set<UInt8>()
     var extraItems = 0
-    // Pola producenta/produktu dopisane do definicji, w której ich brakowało.
-    var widened: [UInt8: [UInt8]] = [:]         // typ lokalny → numery dopisanych pól
+    // Manufacturer/product fields appended to definitions that lacked them.
+    var widened: [UInt8: [UInt8]] = [:]         // local type → numbers of appended fields
 
     for item in fit.items {
         switch item {
@@ -245,7 +265,7 @@ func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, Fit
 
         case .message(var m):
             let localType = m.header & 0x80 != 0 ? (m.header >> 5) & 0x03 : m.header & 0x0F
-            if let missing = widened[localType] {   // dopisane pola stoją przed polami deweloperskimi
+            if let missing = widened[localType] {   // appended fields go before developer fields
                 m.body.insert(contentsOf: [UInt8](repeating: 0xFF, count: missing.count * 2), at: m.def.fieldsSize)
                 m.def.fields += missing.map { Field(num: $0, size: 2, baseType: 0x84) }
             }
@@ -270,7 +290,7 @@ func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, Fit
 
             case Msg.activity:
                 if let utc = m.uint(253), m.def.range(of: 5) != nil {
-                    let unix = TimeInterval(utc) + 631_065_600      // epoka FIT: 1989-12-31
+                    let unix = TimeInterval(utc) + 631_065_600      // FIT epoch: 1989-12-31
                     let offset = timeZone.secondsFromGMT(for: Date(timeIntervalSince1970: unix))
                     let local = UInt64(Int(utc) + offset)
                     if m.uint(5) != local {
@@ -291,7 +311,7 @@ func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, Fit
 
             if m.def.global == Msg.fileId && !hasCreator && !report.addedCreatorDevice,
                let free = (0..<16).first(where: { !usedLocalTypes.contains($0) }) {
-                // Typ lokalny nieużyty do tej pory: każde późniejsze użycie poprzedzi własna definicja.
+                // Local type unused so far: any later use will be preceded by its own definition.
                 var def = Definition(bigEndian: false, global: Msg.deviceInfo, fields: [
                     Field(num: 0, size: 1, baseType: 0x02),         // device_index
                     Field(num: 2, size: 2, baseType: 0x84),         // manufacturer
@@ -311,7 +331,7 @@ func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, Fit
         }
     }
 
-    // Nagłówek: rozmiar danych i (dla nagłówka 14-bajtowego) jego CRC, potem CRC pliku.
+    // Header: data size and (for a 14-byte header) its CRC, then the file CRC.
     let dataSize = out.count - fit.header.count
     for i in 0..<4 { out[4 + i] = UInt8(truncatingIfNeeded: dataSize >> (8 * i)) }
     if fit.header.count == 14 {
@@ -325,7 +345,7 @@ func patchFit(_ input: Data, timeZone: TimeZone = .current) throws -> (Data, Fit
     return (Data(out), report)
 }
 
-/// Wynik musi dać się wczytać, mieć poprawne CRC, urządzenie Garmina i nietknięte próbki.
+/// The result must parse, have a valid CRC, a Garmin device and untouched samples.
 private func verify(_ out: [UInt8], against original: FitFile, extraItems: Int, report: FitReport) throws {
     guard let result = try? readFit(out), result.crcValid,
           result.items.count == original.items.count + extraItems else { throw FitError.verificationFailed }

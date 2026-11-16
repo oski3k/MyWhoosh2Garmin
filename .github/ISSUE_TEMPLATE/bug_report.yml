@@ -1,0 +1,47 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where did it go wrong?
+      options:
+        - The app wouldn't open
+        - The app beeped / didn't create a fixed file
+        - Garmin Connect rejected the import
+        - Imported, but no training load / Exercise Load
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: garmin
+    attributes:
+      label: Garmin device model
+      placeholder: e.g. Forerunner 965, Edge 840
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac type
+      placeholder: e.g. macOS 15.2, Apple Silicon
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Whoosh2Garmin version
+      placeholder: e.g. 1.0.0
+  - type: textarea
+    id: file
+    attributes:
+      label: FIT file (optional)
+      description: >
+        Attaching the original MyWhoosh .fit file helps a lot. It contains your ride data,
+        so only attach it if you're comfortable sharing it publicly.

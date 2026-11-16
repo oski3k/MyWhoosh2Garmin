@@ -1,4 +1,4 @@
-// Rysuje ikonę aplikacji: icon.swift <katalog.iconset>
+// Draws the app icon: icon.swift <dir.iconset>
 import AppKit
 
 let dir = CommandLine.arguments[1]
